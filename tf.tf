@@ -3,6 +3,16 @@ provider "aws" {
   region = "eu-west-1"
 }
 
+resource "aws_dynamodb_table" "test_dynamo_table" {
+  name = "mwb-test"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key = "filename"
+  attribute {
+    name = "filename"
+    type = "S"
+  }
+}
+
 resource "aws_security_group" "my_security_group" {
   name = "mwb-test security group"
   description = "test group"
@@ -21,16 +31,22 @@ resource "aws_security_group" "my_security_group" {
     cidr_blocks = ["0.0.0.0/0"]
     protocol = "tcp"
   }
+  egress {
+    cidr_blocks = ["0.0.0.0/0"]
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+  }
 }
 
 resource "aws_launch_configuration" "aws_linux" {
   name = "mwb-test auto scaling launch configuration"
   instance_type = "t2.micro"
-  image_id = "ami-0ca15f9db3b8695b8"
+  image_id = "ami-07ee42ba0209b6d77"
   security_groups = [aws_security_group.my_security_group.name]
   key_name = "my-ec2"
   iam_instance_profile = aws_iam_instance_profile.my_instance_profile.name
-//  user_data = file("./user_data_public.sh")
+  user_data = file("./user_data.sh")
 }
 
 resource "aws_iam_instance_profile" "my_instance_profile" {
@@ -82,25 +98,21 @@ data "aws_iam_policy_document" "instance_assume_role_policy" {
 data "aws_iam_policy_document" "ec2_s3_read_policy" {
   statement {
     effect = "Allow"
-    actions   = ["s3:GetObject"]
+    actions   = [
+      "s3:GetObject",
+      "s3:PutObject"
+    ]
     resources = ["arn:aws:s3:::mwb--test/*"]
-  }
-  statement {
-    effect = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::mwb--test"]
   }
 }
 
 data "aws_iam_policy_document" "ec2_to_access_dynamo_policy" {
   statement {
     effect = "Allow"
-    actions   = ["dynamodb:Query", "dynamodb:Scan", "dynamodb:BatchWriteItem"]
-    resources = ["arn:aws:dynamodb:us-east-1:*:table/mwb-test"]
-  }
-  statement {
-    effect = "Allow"
-    actions   = ["dynamodb:ListTables"]
-    resources = ["arn:aws:dynamodb:us-east-1:*:*"]
+    actions   = [
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = ["arn:aws:dynamodb:eu-west-1:*:table/mwb-test"]
   }
 }

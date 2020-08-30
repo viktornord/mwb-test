@@ -22,8 +22,9 @@ createServer(async function (req, res) {
       handlePromises.push(onFileUpload({ filename, file }));
     });
     busboy.on('finish', async () => {
-      await Promise.all(handlePromises);
-      res.end();
+      const results = await Promise.all(handlePromises);
+      res.writeHeader(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ results }));
     });
   } else {
     res.statusCode = 404;
@@ -50,11 +51,15 @@ async function onFileUpload({ filename, file }) {
     }).promise();
     const fileSize = getFileSize(bytes);
     await saveUploadEvent({ filename, fileSize });
-    console.log(`Saved ${filename} ${fileSize}`);
+    return {
+      message: `Saved ${filename} ${fileSize}`,
+    };
   } else {
     await saveReceiveEvent({ filename });
     file.resume();
-    console.log(`${filename} already exists`);
+    return {
+      message: `${filename} already exists`
+    };
   }
 }
 
@@ -94,3 +99,6 @@ function saveReceiveEvent({ filename }) {
     },
   }).promise();
 }
+
+process.on('uncaughtException', console.error);
+process.on('unhandledRejection', console.error);
